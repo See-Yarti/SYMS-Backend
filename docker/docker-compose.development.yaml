@@ -1,0 +1,24 @@
+services:
+  redis_development:
+    image: 'redis:alpine'
+    container_name: redis_development
+    command: >
+      redis-server --requirepass redispassword --appendonly yes
+    ports:
+      - '6379:6379'
+    volumes:
+      - redisDB:/data
+    env_file:
+      - ../secrets/.env.development
+    healthcheck:
+      test: ["CMD", "redis-cli", "-h", "127.0.0.1", "-a", "redispassword", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+networks: 
+  development_network:
+    driver: bridge
+
+volumes:
+  redisDB:
