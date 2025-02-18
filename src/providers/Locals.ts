@@ -62,7 +62,10 @@ class Locals {
       OTP_EXPIRATION_TIME: Number(env.OTP_EXPIRATION_TIME as string),
       OTP_LIMIT: Number(env.OTP_LIMIT as string),
       OTP_BLOCK_TIME: Number(env.OTP_BLOCK_TIME as string),
-      OTP_CACHE_EXPIRY_TIME: Number(env.OTP_EXPIRE_TIME as string),
+      OTP_CACHE_EXPIRY_TIME: Number(env.OTP_CACHE_EXPIRY_TIME as string),
+      // OTP Request Key
+      OTP_REQUEST_KEY: (email : string) => `otp_request:${email}`,
+      BLOCKED_USER_KEY: (email: string) => `blocked_user:${email}`
     };
   }
   /**

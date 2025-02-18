@@ -1,0 +1,20 @@
+services:
+
+  server:
+    build: .
+    container_name: server
+    restart: always
+    ports:
+    - 4000:4000
+
+  nginx:
+   image: nginx:latest
+   container_name: nginx
+   restart: always
+   ports:
+   - 80:80
+   - 443:443
+   volumes:
+   - ./conf/nginx.conf:/etc/nginx/conf.d
+   depends_on:
+   - server

@@ -4,11 +4,20 @@ import crypto from 'crypto';
 
 class OtpService {
   /**
+   * Checks if a user already has an active OTP
+   * @param email - User's email
+   * @returns True if user has an active OTP, false otherwise
+   */
+  async isUserHaveOTP(email: string): Promise<boolean> {
+    const otpRecord = await OtpModel.findOne({ isUsed: false, email: email });
+    return !!otpRecord;
+  }
+  /**
    * Generates a new OTP and saves it in the database
    * @param email - User's email
    * @returns The generated OTP (only for development/debugging)
    */
-  async generateOtp(email: string): Promise<string> {
+  async generateOtp(email: string): Promise<{ otp: string; otpExpiration: Date }> {
     // 6-digit OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const hashedOtp = crypto.createHash('sha256').update(otp).digest('hex');
@@ -20,7 +29,7 @@ class OtpService {
     // Save new OTP in the database
     await OtpModel.create({ email, otp: hashedOtp, expiresAt });
 
-    return otp;
+    return { otp, otpExpiration: expiresAt };
   }
 
   /**
@@ -44,11 +53,11 @@ class OtpService {
   }
 
   /**
-   * Resends OTP if the previous one is expired, otherwise asks to use the existing one
+   * Resend OTP if the previous one is expired, otherwise asks to use the existing one
    * @param email - User's email
    * @returns New OTP if generated, otherwise a message
    */
-  async resendOtp(email: string): Promise<string> {
+  async resendOtp(email: string): Promise<{ otp: string; otpExpiration: Date } | string> {
     const existingOtp = await OtpModel.findOne({ email, isUsed: false }).sort({ expiresAt: -1 });
 
     if (existingOtp && existingOtp.expiresAt > new Date()) {
