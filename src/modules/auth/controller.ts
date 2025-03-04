@@ -96,7 +96,7 @@ class AuthController {
     await this.refreshTokenService.saveRefreshToken(user.id, refreshToken);
 
     const response = {
-      token: { accessToken },
+      _aT:accessToken,
       unReadNotifications,
       readNotifications,
       user: {
