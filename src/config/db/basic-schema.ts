@@ -7,6 +7,7 @@ export interface DocumentConfig extends Document {
   updatedAt: Date;
 }
 
+
 // Function to add default fields & hooks
 const mongooseSchemaConfig = (schema: Schema) => {
   schema.add({
