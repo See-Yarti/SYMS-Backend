@@ -12,7 +12,7 @@ public/static
 
 .env.example
 
-logs/*.log
+logs
 
 dist
 

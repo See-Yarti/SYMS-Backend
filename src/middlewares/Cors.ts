@@ -1,21 +1,27 @@
 import { Application } from 'express';
 import cors from 'cors';
-import Locals from '@/providers/Locals';
 
 class Cors {
   public static mount(_express: Application): Application {
-    // cors configuration
+    const allowedOrigins = ['http://localhost:5173'];
     _express.use(
       cors({
-        origin: Locals.config().CLIENT_URL,
+        origin: function (origin, callback) {
+          if (!origin || allowedOrigins.includes(origin)) {
+            callback(null, origin);
+          } else {
+            callback(new Error('Not allowed by CORS'));
+          }
+        },
         credentials: true,
-        methods: ['GET', 'POST', 'PUT', 'DELETE'],
-        maxAge: 600, // cache the pre flight request for 10 minutes (600 seconds)
-        optionsSuccessStatus: 204, // allow GET requests with valid credentials
+        methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+        allowedHeaders: ['Content-Type', 'Authorization'],
+        exposedHeaders: ['Authorization', 'Set-Cookie'],
       }),
     );
 
     return _express;
   }
 }
+
 export default Cors;

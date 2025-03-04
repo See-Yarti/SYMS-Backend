@@ -10,9 +10,11 @@ export const asyncWrapper = (fn: Function) => {
         return res.status(result.statusCode).json(result);
       }
     } catch (error: unknown) {
-      // console.error('AsyncWrapper Error:', error);
-      const statusCode = error instanceof Error && 'statusCode' in error ? (error as { statusCode: number }).statusCode : 500;
+      const statusCode =
+        error instanceof Error && 'statusCode' in error ? (error as { statusCode: number }).statusCode : 500;
       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
-      return next(new BadRequestError(errorMessage, statusCode));
+      const responseErrors = error instanceof Error && 'errors' in error ? (error as { errors: any }).errors : null;
+      return next(new BadRequestError(errorMessage, statusCode, responseErrors));
     }
-  };};
+  };
+};

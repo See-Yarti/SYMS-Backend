@@ -1,4 +1,4 @@
-import EmailService from '@/services/EmailService';
+import EmailService from '@/services/email.service';
 import { EmailJobData } from '@/types/email.types';
 import BaseWorker from '@/utils/BaseWorker';
 import { Worker, Job } from 'bullmq';

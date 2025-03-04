@@ -1,225 +1,277 @@
-import { NextFunction, Request, Response } from 'express';
-import successResponse from '@/utils/SuccessResponse';
-import passport from 'passport';
-import { BadRequestError } from '@/utils/errors';
-import { AuthError, AuthInfo } from '@/types/passport';
 import { Queue } from 'bullmq';
 import Database from '@/providers/Database';
 import { EmailJobData } from '@/types/email.types';
-import { TUserSession } from '@/types/user.types';
-import Locals from '@/providers/Locals';
-import { generateToken, handleAuthError, verifyToken } from '@/utils/authUtils';
-import jwt, { JsonWebTokenError, TokenExpiredError } from 'jsonwebtoken';
 import { asyncWrapper } from '@/utils/asyncWrapper';
 import UserService from '@/services/user.service';
-import OtpService from '@/services/otp.service';
+import VendorService from '@/services/vendor.service';
 import { RedisClientType } from 'redis';
+import { Request } from 'express';
+import { BadRequestError } from '@/utils/errors';
+import { generateAuthToken, verifyToken } from '@/utils/authUtils';
+import successResponse from '@/utils/SuccessResponse';
+import RefreshTokenService from '@/services/refresh-token.service';
+import { TUserSession, UserGender, UserRole } from '@/types/user.types';
+import CryptoService from '@/services/crypto.service';
+import { createAdminAccount, createVendorAccount } from './dto';
+import mongoose from 'mongoose';
+import NotificationService from '@/services/notification.service';
+import { NotificationType } from '@/types/notification.types';
+import Multer from '@/middlewares/Multer';
 
 class AuthController {
-  // Service's
+  // Services
   private userService: UserService = new UserService();
-  private otpService: OtpService = new OtpService();
+  private vendorService: VendorService = new VendorService();
+  private notificationService: NotificationService = new NotificationService();
+  private cryptoService: CryptoService = new CryptoService();
+  private refreshTokenService: RefreshTokenService = new RefreshTokenService();
   private emailQueue = new Queue<EmailJobData>('emailQueue', { connection: Database.getRedisOptions('QUEUE') });
   private redisCache: RedisClientType = Database.getRedisClient('CACHE');
-  // Local Authentication
-  // Email login - if the user is found then send the otp
-  public emailLogin = asyncWrapper(async (request: Request) => {
-    const email = request.params.email;
-    // Check if user exists
-    const isU = await this.userService.findUserByEmail(email);
-    if (!isU) {
+  private multer = new Multer();
+  /**
+   * User Login (Only Admin & Verified Vendors)
+   */
+  public credentialLogin = asyncWrapper(async (request: Request) => {
+    const { email, password } = request.body;
+
+    // Find user by email
+    const user = await this.userService.findUserByEmail(email);
+    if (!user) {
       throw new BadRequestError('User not found', 404);
     }
 
-    // Check if user has already requested an OTP and its not expired
-
-    const isUserOTPAvailable = await this.otpService.isUserHaveOTP(email);
-
-    if (isUserOTPAvailable) {
-      throw new BadRequestError('OTP already sent, Please check your email', 400);
+    // If user is a vendor, check if they are verified
+    if (user.role === UserRole.vendor) {
+      // Find the vendor by using user ID
+      const vendor = await this.vendorService.getVendorByUserId(user.id);
+      // if vendor is not found, throw error
+      if (!vendor) {
+        throw new BadRequestError('Vendor not found', 404);
+      }
+      // Check if the vendor is verified by the admin or not
+      const isVerified = await this.vendorService.isVendorVerified(vendor.id);
+      if (!isVerified) {
+        throw new BadRequestError('Vendor is not verified. Please wait for admin approval.', 403);
+      }
     }
 
-    // If they don't have a valid otp then check is the user have a validity to get a token
+    // Check password
+    const decryptedPassword = this.cryptoService.decrypt(user.password);
 
-    const otpKey = Locals.config().OTP_REQUEST_KEY(email);
-    const blockedKey = Locals.config().BLOCKED_USER_KEY(email);
-
-    const isUserBlocked = await this.redisCache.get(blockedKey);
-    if (isUserBlocked) {
-      throw new BadRequestError('There are too many requests for this user, Try again after one hour', 429);
+    // If the password is not matched, throw error
+    if (password !== decryptedPassword) {
+      throw new BadRequestError('Invalid password', 400);
     }
 
-    // Get the OTP Request count
-
-    const otpRequestCount = await this.redisCache.get(otpKey);
-    const attempts = otpRequestCount ? parseInt(otpRequestCount, 10) : 0;
-    if (attempts >= Locals.config().OTP_LIMIT) {
-      // Block the user for the one hour
-      await this.redisCache.set(blockedKey, 'true', { EX: Locals.config().OTP_CACHE_EXPIRY_TIME });
-      throw new BadRequestError('There are too many requests for this user, Try again after one hour', 429);
-    }
-
-    // if they have a limit to request a otp
-
-    await this.redisCache.set(otpKey, (attempts + 1).toString(), {
-      EX: Locals.config().OTP_CACHE_EXPIRY_TIME,
+    // Update user loginAt and isFirstLogin
+    const updateUserPromise = this.userService.updateUserFields({
+      userId: user.id,
+      updateData: { loginAt: new Date(), isFirstLogin: user.isFirstLogin ? false : true },
     });
 
-    // Generate OTP
+    // Add the notification to the user
+    const addNotificationPromise = user.isFirstLogin
+      ? this.notificationService.addNotification(user.id, 'Welcome to the platform!', NotificationType.info)
+      : Promise.resolve();
 
-    const { otp, otpExpiration } = await this.otpService.generateOtp(email);
+    // Run the promise and update user and add notification to the user
+    await Promise.all([updateUserPromise, addNotificationPromise]);
 
-    // Add the OTP Email to the Queue
+    // Get the all notifications of the logged user thar are unread
+    const unReadNotificationsPromise = this.notificationService.getTotalNotifications(user.id);
 
-    this.emailQueue.add('OtpEmail', {
-      type: 'otpEmail',
-      to: email,
-      data: {
-        receiverName: isU.firstName,
-        otp: otp,
+    // Get the total number of notifications that are read
+    const readNotificationsPromise = this.notificationService.getTotalNotifications(user.id, true);
+
+    // Wait for both promises to resolve
+    const [unReadNotifications, readNotifications] = await Promise.all([
+      unReadNotificationsPromise,
+      readNotificationsPromise,
+    ]);
+
+    // Generate JWT token
+    const { accessToken, refreshToken } = generateAuthToken({ email: user.email, id: user.id, role: user.role });
+
+    // Save refresh token
+    await this.refreshTokenService.saveRefreshToken(user.id, refreshToken);
+
+    const response = {
+      token: { accessToken },
+      unReadNotifications,
+      readNotifications,
+      user: {
+        email: user.email,
+        id: user.id,
+        role: user.role,
+        name: user.name,
+        isFirstLogin: user.isFirstLogin,
+        avatarUrl: user.avatarUrl,
       },
-    });
-
-    // Generate a session token
-
-    const sessionToken = generateToken({
-      payload: {
-        email,
-        otpExpiration,
-      },
-      options: {
-        expiresIn: '15m',
-        subject: 'otpVerifyToken',
-      },
-    });
-
-    // Send success response
-    return new successResponse({ email, sessionToken }, 'OTP sent successfully', true, 200);
-  });
-
-  // Verify the session token
-  public verifyOTPSessionToken = asyncWrapper(async (request: Request) => {
-    const { st } = request.params;
-    // Verify the session token
-    const decodedSession = verifyToken(st);
-    if (!decodedSession || typeof decodedSession !== 'object' || decodedSession.sub !== 'otpVerifyToken') {
-      throw new BadRequestError('Invalid Session', 401);
-    }
-    // Ensure `exp` exists in decodedSession
-    if (!('exp' in decodedSession) || typeof decodedSession.exp !== 'number') {
-      throw new BadRequestError('Invalid Session', 401);
-    }
-    // Check if the session token is expired
-    if (decodedSession.exp < Math.floor(Date.now() / 1000)) {
-      throw new BadRequestError('Invalid Session', 401);
-    }
-    return new successResponse(null, 'Session Verified', true, 200);
-  });
-
-  // Login OTP Verification - if the otp is valid then logged the user
-  public verifyOtp = asyncWrapper(async (request: Request, response: Response, next: NextFunction) => {
-    const { otp } = request.body;
-    const { email, st } = request.params;
-
-    // Verify the session token
-    const decodedSession = verifyToken(st);
-    if (!decodedSession || typeof decodedSession !== 'object' || decodedSession.sub !== 'otpVerifyToken') {
-      throw new BadRequestError('Invalid Session', 401);
-    }
-    // Ensure `exp` exists in decodedSession
-    if (!('exp' in decodedSession) || typeof decodedSession.exp !== 'number') {
-      throw new BadRequestError('Invalid Session', 401);
-    }
-    // Check if the session token is expired
-    if (decodedSession.exp < Math.floor(Date.now() / 1000)) {
-      throw new BadRequestError('Invalid Session', 401);
-    }
-
-    // Check if user exists
-    const user = await this.userService.findUserByEmail(email);
-    if (!user) {
-      return next(new BadRequestError('User not found', 404));
-    }
-
-    // Verify OTP
-    const isOtpValid = await this.otpService.verifyOtp(email, otp);
-    if (!isOtpValid) {
-      return next(new BadRequestError('Invalid or expired OTP', 401));
-    }
-
-    // Saving the user data in the session
-    const sessionUser: TUserSession = {
-      id: user.id,
-      email: user.email,
-      firstName: user.firstName,
-      lastName: user.lastName,
     };
 
-    request.logIn(sessionUser, (err) => {
-      if (err) {
-        return next(new BadRequestError('Session creation failed', 500));
-      }
-      // Send the Login Email to the user
-      this.emailQueue.add('loginEmail', {
-        type: 'loginEmail',
-        to: user.email,
+    return new successResponse(response, 'User logged in successfully', true, 200);
+  });
+
+  /**
+   * Create a new Vendor (Unverified until Admin Approves)
+   */
+  public createVendor = asyncWrapper(async (request: Request) => {
+    const bodyData = request.body as createVendorAccount;
+
+    // Check if the email is already registered
+    const existingUser = await this.userService.findUserByEmail(bodyData.email);
+
+    if (existingUser) {
+      throw new BadRequestError('User already exists', 400);
+    }
+
+    const tradeLicenseFile = request.file;
+
+    if (!tradeLicenseFile) {
+      throw new BadRequestError('Trade license file is required', 400);
+    }
+    // Upload file to Cloudinary
+    const tradeLicenseUrl = await this.multer.BufferFileUpload(
+      tradeLicenseFile.buffer,
+      `${bodyData.email}-trade-license`,
+    );
+
+    if (!tradeLicenseUrl) {
+      throw new BadRequestError('Failed to upload trade license', 500);
+    }
+
+    // Encrypt default password for security
+    const encryptedPassword = this.cryptoService.encrypt('unverified');
+
+    // Start a MongoDB session
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
+    try {
+      // Step 1: Create the User (Inside the Transaction)
+      const newUser = await this.userService.createUser(
+        {
+          name: bodyData.name,
+          email: bodyData.email,
+          role: UserRole.vendor,
+          password: encryptedPassword,
+          agent: request.headers['user-agent'] || '',
+          loginAt: new Date(),
+          ip: request.clientIp,
+          phoneNumber: bodyData.phoneNumber,
+          gender: UserGender.other,
+          address: {
+            state: bodyData.state,
+            fullAddress: bodyData.companyAddress,
+          },
+        },
+        session, // Pass session for transaction
+      );
+
+      // Step 2: Create the Vendor (Inside the Transaction)
+      await this.vendorService.createVendor(
+        newUser.id,
+        {
+          companyName: bodyData.companyName,
+          designation: bodyData.designation,
+          taxRefNumber: bodyData.taxRefNumber,
+          isVendorVerified: false,
+          tradeLicense: tradeLicenseUrl,
+        },
+        session, // Pass session for transaction
+      );
+
+      // If both operations succeed, commit the transaction
+      await session.commitTransaction();
+      session.endSession();
+
+      // Send the Register Vendor Email
+      await this.emailQueue.add('registerVendorEmail', {
+        type: 'registerVendorEmail',
+        to: bodyData.email,
         data: {
-          receiverName: sessionUser.firstName,
+          receiverName: bodyData.name,
         },
       });
-      // Complete the request by sending the response
-      return response.status(200).json(new successResponse(null, 'OTP Verified, User Logged In', true, 200));
-    });
-  });
 
-  // Google Authentication
-  public googleLogin = (request: Request, response: Response, next: NextFunction) => {
-    passport.authenticate('google', { scope: ['profile', 'email'] })(request, response, next);
-  };
-  // // Google Authentication Callback
-  public googleCallback = (request: Request, response: Response, next: NextFunction) => {
-    //  authenticate the user
-    passport.authenticate(
-      'google',
-      { session: false },
-      (err: AuthError, user: TUserSession | false, info: AuthInfo) => {
-        if (err || !user) {
-          return handleAuthError(response, err?.message || 'Invalid Email Address');
-        }
-        request.logIn(user, async (loginError) => {
-          if (loginError) {
-            // throw new BadRequestError('Unable to authenticate', 500);
-            return next(new BadRequestError('Unable to authenticate', 500));
-          }
-          // Complete the request by redirecting to the app dashboard
-          return response.redirect(Locals.config().CLIENT_URL);
-        });
-      },
-    )(request, response, next);
-  };
-  // // Decode Error Token
-  public decodeErrorToken = asyncWrapper(async (request: Request, response: Response, next: NextFunction) => {
-    try {
-      const token = request.query.token as string;
-      // Check if token is provided
-      if (!token) {
-        throw new BadRequestError('Token is required', 400);
-      }
-      // Verify the JWT
-      const decoded = jwt.verify(token, Locals.config().JWT_SECRET) as { message: string };
-      return new successResponse(decoded.message, decoded.message);
+      return new successResponse(null, 'Vendor Created Successfully. Please wait for Admin Approval.', true, 201);
     } catch (error) {
-      // Handle different JWT errors
-      if (error instanceof TokenExpiredError) {
-        throw new BadRequestError('Session has expired, Please try again.', 400);
-      }
-
-      if (error instanceof JsonWebTokenError) {
-        throw new BadRequestError('Invalid token, Authentication Failed.', 401);
-      }
-
-      throw new BadRequestError('Something went wrong while decoding the token.', 500);
+      console.error(error);
+      // If any operation fails, rollback everything
+      await session.abortTransaction();
+      session.endSession();
+      throw new BadRequestError('Vendor registration failed. Please try again.', 500);
     }
   });
+
+  /**
+   * Refresh the access token
+   */
+  public refreshToken = asyncWrapper(async (request: Request) => {
+    const authHeader = request.headers.authorization;
+
+    if (!authHeader) throw new BadRequestError('Unauthorized Request', 401);
+
+    const token = authHeader.split(' ')[1];
+
+    const decoded = verifyToken(token, 'accessToken') as TUserSession;
+
+    if (!decoded) throw new BadRequestError('Unauthorized Token Request', 401);
+
+    const user = await this.userService.findUserByEmail(decoded.email);
+
+    if (!user) throw new BadRequestError('Unauthorized User Request', 401);
+
+    const userRefreshToken = await this.refreshTokenService.getRefreshToken(user.id);
+
+    if (!userRefreshToken) throw new BadRequestError('Unauthorized User Request', 401);
+
+    const refreshTokenVerification = verifyToken(userRefreshToken.token, 'refreshToken') as TUserSession;
+
+    if (!refreshTokenVerification) throw new BadRequestError('Refresh Token Failed', 401);
+
+    const { accessToken } = generateAuthToken({ email: user.email, id: user.id, role: user.role });
+
+    return new successResponse({ token: { accessToken } }, 'Token Refreshed Successfully', true, 200);
+  });
+
+  /**
+   * Create a admin account
+   */
+  public createAdmin = asyncWrapper(async (request: Request) => {
+    const bodyData = request.body as createAdminAccount;
+
+    const user = await this.userService.findUserByEmail(bodyData.email);
+
+    if (user) throw new BadRequestError('User already exists', 400);
+
+    const encryptedPassword = this.cryptoService.encrypt(bodyData.password);
+
+    const admin = await this.userService.createUser({
+      name: bodyData.name,
+      email: bodyData.email,
+      role: UserRole.admin,
+      password: encryptedPassword,
+      agent: request.headers['user-agent'] || '',
+      loginAt: new Date(),
+      ip: request.clientIp,
+      phoneNumber: bodyData.phoneNumber,
+      gender: UserGender.other,
+      address: {
+        fullAddress: bodyData.address,
+      },
+    });
+
+    return new successResponse(
+      {
+        email: admin.email,
+        name: admin.name,
+      },
+      'Admin Created Successfully',
+      true,
+      201,
+    );
+  });
 }
+
 export default AuthController;

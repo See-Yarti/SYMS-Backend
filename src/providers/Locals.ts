@@ -49,23 +49,21 @@ class Locals {
       EMAIL_PORT: Number(env.EMAIL_PORT as string),
       EMAIL_USER: env.EMAIL_USER as string,
       EMAIL_PASSWORD: env.EMAIL_PASSWORD as string,
-      // Google OAuth configuration
-      GOOGLE_CLIENT_ID: env.GOOGLE_CLIENT_ID as string,
-      GOOGLE_CLIENT_SECRET: env.GOOGLE_CLIENT_SECRET as string,
-      GOOGLE_CALLBACK_URL: env.GOOGLE_CALLBACK_URL as string,
-      // JWT configuration
-      JWT_SECRET: env.JWT_SECRET as string,
-      //CLIENT WEB URL
-      CLIENT_URL: env.CLIENT_URL as string,
-      CLIENT_AUTH_ERROR_URL: env.CLIENT_AUTH_ERROR_URL as string,
-      // OTP configuration
-      OTP_EXPIRATION_TIME: Number(env.OTP_EXPIRATION_TIME as string),
-      OTP_LIMIT: Number(env.OTP_LIMIT as string),
-      OTP_BLOCK_TIME: Number(env.OTP_BLOCK_TIME as string),
-      OTP_CACHE_EXPIRY_TIME: Number(env.OTP_CACHE_EXPIRY_TIME as string),
-      // OTP Request Key
-      OTP_REQUEST_KEY: (email : string) => `otp_request:${email}`,
-      BLOCKED_USER_KEY: (email: string) => `blocked_user:${email}`
+      // Tokens & JWT configuration
+      CRYPTO_ALGORITHM: env.CRYPTO_ALGORITHM as string,
+      CRYPTO_SECRET_KEY: env.CRYPTO_SECRET_KEY as string,
+      CRYPTO_IV_LENGTH: Number(env.CRYPTO_IV_LENGTH as string),
+
+      ACCESS_TOKEN_SECRET: String(env.ACCESS_TOKEN_SECRET as string),
+      REFRESH_TOKEN_SECRET: String(env.REFRESH_TOKEN_SECRET as string),
+      ACCESS_JWT_EXPIRATION: env.ACCESS_JWT_EXPIRATION as string,
+      REFRESH_JWT_EXPIRATION: env.REFRESH_JWT_EXPIRATION as string,
+
+      // Cloudinary configuration
+      CLOUDINARY_NAME: env.CLOUDINARY_NAME as string,
+      CLOUDINARY_API_KEY: env.CLOUDINARY_API_KEY as string,
+      CLOUDINARY_API_SECRET: env.CLOUDINARY_API_SECRET as string,
+      CLOUDINARY_FOLDER_NAME: env.CLOUDINARY_FOLDER_NAME as string,
     };
   }
   /**

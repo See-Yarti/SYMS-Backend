@@ -6,10 +6,14 @@ import rateLimiter from 'express-rate-limit';
 import Locals from '@/providers/Locals';
 import session from 'express-session';
 import Database from '@/providers/Database';
+import reqIp from 'request-ip';
+
 class Http {
   // Mounts all the defined middlewares in the application
   public static mount = (_express: Application): Application => {
     const { BODY_PARSER_LIMIT, MAX_RATE_LIMIT } = Locals.config();
+    // Request IP Middleware to access the client ip address
+    _express.use(reqIp.mw());
     // Body Parser configuration
     _express.use(
       bodyParser.json({
@@ -31,9 +35,7 @@ class Http {
     // Helmet middleware for the security
     _express.use(
       helmet({
-        // Prevents browsers from MIME type sniffing
         noSniff: true,
-        // Prevents browsers from executing scripts in `<script>` tags
         referrerPolicy: {
           policy: 'no-referrer',
         },
@@ -70,11 +72,10 @@ class Http {
           priority: 'high',
           maxAge: Locals.config().SESSION_MAX_AGE,
           domain: Locals.config().SESSION_DOMAIN,
-          secure : Locals.config().NODE_ENV === 'production',
+          secure: Locals.config().NODE_ENV === 'production',
           httpOnly: true,
-          sameSite: 'lax',
+          sameSite: 'none',
           path: '/',
-        
         },
       }),
     );

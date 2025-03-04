@@ -1,13 +1,13 @@
 services:
-  redis_development:
+  seeyarti-redisDB:
     image: 'redis:alpine'
-    container_name: redis_development
+    container_name: seeyarti-redisDB
     command: >
       redis-server --requirepass redispassword --appendonly yes
     ports:
       - '6379:6379'
     volumes:
-      - redisDB:/data
+      - seeyarti-development-redisDB:/data
     env_file:
       - ../secrets/.env.development
     healthcheck:
@@ -17,8 +17,8 @@ services:
       retries: 5
 
 networks: 
-  development_network:
+  seeyarti_development_network:
     driver: bridge
 
 volumes:
-  redisDB:
+  seeyarti-development-redisDB:

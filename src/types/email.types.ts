@@ -1,26 +1,11 @@
 export const EmailTypes = {
-  welcomeLoginEmail: {
-    subject: 'Welcome to our platform',
-    receiverName: '' as string,
-  },
   loginEmail: {
     subject: 'Login to our platform',
     receiverName: '' as string,
   },
-  otpEmail: {
-    subject: 'One Time Password (OTP) for your login',
+  registerVendorEmail: {
+    subject: 'Your Vendor Account Has Been Created – Pending Approval',
     receiverName: '' as string,
-    otp: '' as string,
-  },
-  registerEmail: {
-    subject: 'Registration successful',
-    receiverName: '' as string,
-    confirmationLink: '' as string,
-  },
-  resetPasswordEmail: {
-    subject: 'Reset your password',
-    receiverName: '' as string,
-    resetLink: '' as string,
   },
 } as const;
 

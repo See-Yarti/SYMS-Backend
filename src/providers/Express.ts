@@ -4,7 +4,6 @@ import { NotFoundError } from '@/utils/errors';
 import ErrorHandler from '@/utils/errorHandler';
 import Http from '@/middlewares/Http';
 import apiRouter from '@/routes';
-import Passport from '@/providers/Passport';
 import WorkerManager from './Workers';
 import Cors from '@/middlewares/Cors';
 class Express {
@@ -29,9 +28,8 @@ class Express {
   }
 
   private mountMiddlewares(): void {
-    this.express = Cors.mount(this.express);
     this.express = Http.mount(this.express);
-    this.express = Passport.mount(this.express);
+    this.express = Cors.mount(this.express);
   }
 
   public async init() {

@@ -14,6 +14,7 @@ export default class ErrorHandler {
         statusCode,
         message: err.message,
         stack: err.stack,
+        errors: err.errors,
       });
     };
   };
