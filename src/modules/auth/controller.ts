@@ -7,7 +7,7 @@ import VendorService from '@/services/vendor.service';
 import { RedisClientType } from 'redis';
 import { Request } from 'express';
 import { BadRequestError } from '@/utils/errors';
-import { generateAuthToken, verifyToken } from '@/utils/authUtils';
+import { decodeToken, generateAuthToken, verifyToken } from '@/utils/authUtils';
 import successResponse from '@/utils/SuccessResponse';
 import RefreshTokenService from '@/services/refresh-token.service';
 import { TUserSession, UserGender, UserRole } from '@/types/user.types';
@@ -17,7 +17,7 @@ import mongoose from 'mongoose';
 import NotificationService from '@/services/notification.service';
 import { NotificationType } from '@/types/notification.types';
 import Multer from '@/middlewares/Multer';
-
+import jwt from 'jsonwebtoken';
 class AuthController {
   // Services
   private userService: UserService = new UserService();
@@ -96,7 +96,7 @@ class AuthController {
     await this.refreshTokenService.saveRefreshToken(user.id, refreshToken);
 
     const response = {
-      _aT:accessToken,
+      _aT: accessToken,
       unReadNotifications,
       readNotifications,
       user: {
@@ -210,31 +210,59 @@ class AuthController {
   public refreshToken = asyncWrapper(async (request: Request) => {
     const authHeader = request.headers.authorization;
 
-    if (!authHeader) throw new BadRequestError('Unauthorized Request', 401);
+    if (!authHeader) throw new BadRequestError('Unauthorized Request: No Authorization Header', 401);
 
     const token = authHeader.split(' ')[1];
+    if (!token) throw new BadRequestError('Unauthorized Request: No Access Token', 401);
+    let decoded = decodeToken(token, 'accessToken');
 
-    const decoded = verifyToken(token, 'accessToken') as TUserSession;
+    if (!decoded) throw new BadRequestError('Invalid or Expired Access Token', 401);
 
-    if (!decoded) throw new BadRequestError('Unauthorized Token Request', 401);
+    const decodedPayload = decoded.payload as TUserSession;
 
-    const user = await this.userService.findUserByEmail(decoded.email);
+    // Find user by ID
+    const user = await this.userService.findUserByEmail(decodedPayload.email);
+    if (!user) throw new BadRequestError('User Not Found', 401);
 
-    if (!user) throw new BadRequestError('Unauthorized User Request', 401);
-
+    // Fetch stored refresh token for user
     const userRefreshToken = await this.refreshTokenService.getRefreshToken(user.id);
 
     if (!userRefreshToken) throw new BadRequestError('Unauthorized User Request', 401);
 
-    const refreshTokenVerification = verifyToken(userRefreshToken.token, 'refreshToken') as TUserSession;
-
-    if (!refreshTokenVerification) throw new BadRequestError('Refresh Token Failed', 401);
+    try {
+      const refreshTokenVerification = verifyToken(userRefreshToken.token, 'refreshToken') as TUserSession;
+      if (!refreshTokenVerification) throw new BadRequestError('Invalid Refresh Token', 401);
+    } catch (error) {
+      throw new BadRequestError('Refresh Token Failed', 401);
+    }
 
     const { accessToken } = generateAuthToken({ email: user.email, id: user.id, role: user.role });
 
-    return new successResponse({ token: { accessToken } }, 'Token Refreshed Successfully', true, 200);
+    return new successResponse({ token: { _aT : accessToken } }, 'Token Refreshed Successfully', true, 200);
   });
 
+  /**
+   * Logout the controller user
+   */
+  public logout = asyncWrapper(async (request: Request) => {
+    const authHeader = request.headers.authorization;
+
+    if (!authHeader) throw new BadRequestError('Unauthorized Request: No Authorization Header', 401);
+    const token = authHeader.split(' ')[1];
+
+    if (!token) throw new BadRequestError('Unauthorized Request: No Access Token', 401);
+    let decoded = decodeToken(token, 'accessToken');
+
+    if (!decoded) throw new BadRequestError('Invalid or Expired Access Token', 401);
+    const decodedPayload = decoded.payload as TUserSession;
+
+    const user = await this.userService.findUserByEmail(decodedPayload.email);
+    if (!user) throw new BadRequestError('User Not Found', 401);
+
+    await this.refreshTokenService.deleteRefreshToken(user.id);
+
+    return new successResponse(null, 'Logout Successfully', true, 200);
+  });
   /**
    * Create a admin account
    */

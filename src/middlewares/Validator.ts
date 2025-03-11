@@ -66,35 +66,41 @@ class Validator {
   public tokenValidator(options?: { acceptRoles?: UserRole[]; rejectRoles?: UserRole[] }): RequestHandler {
     return asyncWrapper(async (request: Request, response: Response, next: NextFunction) => {
       const authHeader = request.headers.authorization;
-
       if (!authHeader) throw new BadRequestError('Unauthorized Request', 401);
-
       const token = authHeader.split(' ')[1];
-      const decoded = verifyToken(token, 'accessToken') as TUserSession;
-
-      // Check if the token is valid
-      if (!decoded) throw new BadRequestError('Unauthorized Request', 401);
+      let decoded;
+      try {
+        decoded = verifyToken(token, 'accessToken') as TUserSession;
+        // Check if the token is valid
+        if (!decoded) throw new BadRequestError('Unauthorized Request', 401);
+      } catch (error) {
+        throw new BadRequestError('Unauthorized Request', 401, error);
+      }
 
       // If acceptRoles is specified, check if user's role is included
       if (options?.acceptRoles && options.acceptRoles.length > 0) {
-        if (!options.acceptRoles.includes(decoded.role)) {
+        if (!options.acceptRoles.includes(decoded?.role as UserRole)) {
           throw new BadRequestError('Unauthorized Access - Role not permitted', 401);
         }
       }
 
       // If rejectRoles is specified, check if user's role is not included
       if (options?.rejectRoles && options.rejectRoles.length > 0) {
-        if (options.rejectRoles.includes(decoded.role)) {
+        if (options.rejectRoles.includes(decoded?.role as UserRole)) {
           throw new BadRequestError('Unauthorized Access - Role restricted', 401);
         }
       }
 
       // Get the user from the database
-      const user = await User.findOne({ email: decoded.email }).exec();
+      const user = await User.findOne({ email: decoded?.email }).exec();
       if (!user) throw new BadRequestError('Unauthorized User', 401);
 
       // Add the user to the request object
-      request.user = user as any;
+      request.user = {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+      } as TUserSession;
       next();
     });
   }

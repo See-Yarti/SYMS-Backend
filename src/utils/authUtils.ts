@@ -59,6 +59,15 @@ export function verifyToken(token: string, type: 'accessToken' | 'refreshToken')
   const secret = type === 'accessToken' ? Locals.config().ACCESS_TOKEN_SECRET : Locals.config().REFRESH_TOKEN_SECRET;
   return jwt.verify(token, secret);
 }
+/**
+ * 
+ * @param token - The token to decode
+ * @param type - The type of token to decode
+ * @returns - JWT or null if the token is invalid
+ */
+export function decodeToken(token: string, type: 'accessToken' | 'refreshToken'): jwt.Jwt | null {
+  return jwt.decode(token, { json: true, complete: true });
+}
 
 /**
  *

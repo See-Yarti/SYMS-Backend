@@ -34,4 +34,7 @@ authRouter.post(
 
 // Auth Token Refresh Route
 authRouter.get('/controller/token/refresh', authController.refreshToken);
+
+// Auth Controller Logout Route
+authRouter.post('/controller/logout', authController.logout);
 export default authRouter;
