@@ -18,9 +18,15 @@ class Locals {
       NODE_ENV: env.NODE_ENV as string,
       PORT: Number(env.PORT) || 4040,
       URL: env.URL || `http://localhost:${env.PORT || 4040}`,
-      MONGOOSE_URL: env.MONGOOSE_URL as string,
       MAX_RATE_LIMIT: Number(env.MAX_RATE_LIMIT as string),
       BODY_PARSER_LIMIT: env.BODY_PARSER_LIMIT as string,
+
+      // Cors configuration
+      CORS_ALLOWED_ORIGIN: env.CORS_ALLOWED_ORIGIN as string,
+
+      // Mongodb configuration
+      MONGOOSE_URL: env.MONGOOSE_URL as string,
+
       // Redis basic configuration
       REDIS_HOST: env.REDIS_HOST as string,
       REDIS_PORT: Number(env.REDIS_PORT as string),
@@ -29,6 +35,7 @@ class Locals {
       REDIS_TLS: Boolean(env.REDIS_TTL as string),
       REDIS_REPLICATION_MODE: env.REDIS_REPLICATION_MODE as string,
       REDIS_URL: `redis://${env.REDIS_HOST}:${env.REDIS_PORT}`,
+
       // Redis Services configuration
       REDIS_SESSION_DB: Number(env.REDIS_SESSION_DB as string),
       REDIS_SESSION_PREFIX: env.REDIS_SESSION_PREFIX as string,
@@ -36,24 +43,29 @@ class Locals {
       REDIS_CACHE_PREFIX: env.REDIS_CACHE_PREFIX as string,
       REDIS_QUEUE_DB: Number(env.REDIS_CACHE_DB as string),
       REDIS_QUEUE_PREFIX: env.REDIS_QUEUE_PREFIX as string,
+
       // Queue Configuration
       QUEUE_FAILED_ATTEMPTS: Number(env.QUEUE_FAILED_ATTEMPTS as string),
+
       // Session configuration
       SESSION_NAME: env.SESSION_NAME as string,
       SESSION_SECRET: env.SESSION_SECRET as string,
       SESSION_MAX_AGE: Number(env.SESSION_MAX_AGE as string),
       SESSION_DOMAIN: env.SESSION_DOMAIN as string | undefined,
+
       // Email configuration
       EMAIL_SERVICE: env.EMAIL_SERVICE as string,
       EMAIL_HOST: env.EMAIL_HOST as string,
       EMAIL_PORT: Number(env.EMAIL_PORT as string),
       EMAIL_USER: env.EMAIL_USER as string,
       EMAIL_PASSWORD: env.EMAIL_PASSWORD as string,
-      // Tokens & JWT configuration
+
+      // Crypto configuration
       CRYPTO_ALGORITHM: env.CRYPTO_ALGORITHM as string,
       CRYPTO_SECRET_KEY: env.CRYPTO_SECRET_KEY as string,
       CRYPTO_IV_LENGTH: Number(env.CRYPTO_IV_LENGTH as string),
 
+      // JWT configuration
       ACCESS_TOKEN_SECRET: String(env.ACCESS_TOKEN_SECRET as string),
       REFRESH_TOKEN_SECRET: String(env.REFRESH_TOKEN_SECRET as string),
       ACCESS_JWT_EXPIRATION: env.ACCESS_JWT_EXPIRATION as string,

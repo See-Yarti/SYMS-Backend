@@ -4,6 +4,7 @@ import { Request } from 'express';
 import Cache from '@/providers/Cache';
 import UsersService from '@/services/user.service';
 import { UserRole } from '@/types/user.types';
+import Socket from '@/providers/Socket';
 
 export class UsersController {
   private usersService: UsersService = new UsersService();

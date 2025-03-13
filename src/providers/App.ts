@@ -6,6 +6,7 @@ import Express from './Express';
 import Logger from '@/utils/logger';
 import Database from './Database';
 import Locals from './Locals';
+import Socket from './Socket';
 
 class App {
   public loadConfigurations(): void {
@@ -21,6 +22,7 @@ class App {
     Logger.info('Booting the server...');
     this.loadConfigurations();
     Express.init();
+    Socket.init(Express.server);
   }
 
   private startCluster(): void {

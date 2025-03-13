@@ -6,14 +6,16 @@ import Http from '@/middlewares/Http';
 import apiRouter from '@/routes';
 import WorkerManager from './Workers';
 import Cors from '@/middlewares/Cors';
+import { createServer } from 'http';
 class Express {
   /**
    * Create a express object
    */
   public express: express.Application;
-
+  public server: ReturnType<typeof createServer>;
   constructor() {
     this.express = express();
+    this.server = createServer(this.express); 
     this.mountEnvVariables();
     this.mountMiddlewares();
     this.mountAPIRoutes();
@@ -46,7 +48,7 @@ class Express {
     this.express.use(ErrorHandler.handle());
 
     // Start the server on the specified port
-    this.express
+    this.server
       .listen(port, () => {
         return console.log(`Server :: Running @ 'http://localhost:${port}'`);
       })
