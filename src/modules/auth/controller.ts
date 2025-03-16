@@ -71,23 +71,15 @@ class AuthController {
 
     // Add the notification to the user
     const addNotificationPromise = user.isFirstLogin
-      ? this.notificationService.addNotification(user.id, 'Welcome to the platform!', NotificationType.info)
+      ? this.notificationService.addNotification({
+        userId: user.id,
+        message: 'Welcome to the platform!',
+        type: NotificationType.info,
+      })
       : Promise.resolve();
 
     // Run the promise and update user and add notification to the user
     await Promise.all([updateUserPromise, addNotificationPromise]);
-
-    // Get the all notifications of the logged user thar are unread
-    const unReadNotificationsPromise = this.notificationService.getTotalNotifications(user.id);
-
-    // Get the total number of notifications that are read
-    const readNotificationsPromise = this.notificationService.getTotalNotifications(user.id, true);
-
-    // Wait for both promises to resolve
-    const [unReadNotifications, readNotifications] = await Promise.all([
-      unReadNotificationsPromise,
-      readNotificationsPromise,
-    ]);
 
     // Generate JWT token
     const { accessToken, refreshToken } = generateAuthToken({ email: user.email, id: user.id, role: user.role });
@@ -97,8 +89,6 @@ class AuthController {
 
     const response = {
       _aT: accessToken,
-      unReadNotifications,
-      readNotifications,
       user: {
         email: user.email,
         id: user.id,

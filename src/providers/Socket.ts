@@ -22,6 +22,12 @@ class Socket {
         this.io.emit('message', data); // Broadcast to all clients
       });
 
+      // Join user to a room based on userId (sent from frontend)
+      socket.on('join', (userId) => {
+        socket.join(userId);
+        Logger.info(`👤 User ${userId} joined their notification room`);
+      });
+
       // Send a notification every 5 seconds
       //   setInterval(() => {
       //     const notification = {

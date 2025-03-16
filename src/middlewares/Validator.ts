@@ -28,7 +28,7 @@ class Validator {
 
       // Convert raw data into DTO instance
       const dtoObject = plainToInstance(props.dto, rawData);
-
+      console.log(dtoObject);
       if (!dtoObject) throw new BadRequestError('Invalid Request - Please Try Again With Correct Parameters', 400);
 
       // Validate the DTO fields
