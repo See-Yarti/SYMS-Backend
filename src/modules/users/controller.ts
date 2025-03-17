@@ -29,17 +29,9 @@ export class UsersController {
   });
 
   getn = asyncWrapper(async (request: Request) => {
-    const notification = {
-      title: '🔔 New Notification',
-      description: 'This is a dummy notification from the server!',
-      image:
-        'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=3276&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
-      fallback: 'AA',
-    };
-
-    // await this.notificationService.addNotification('67c6b3c9929ba243e3a6d462','Your ID has been going to blocked by admin', NotificationType.error);
     await this.notificationService.addNotification({
       userId: '67c6b3c9929ba243e3a6d462',
+      title: 'System Notification Error',
       message: 'Your ID has been going to blocked by admin',
       type: NotificationType.error,
     });

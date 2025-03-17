@@ -72,10 +72,11 @@ class AuthController {
     // Add the notification to the user
     const addNotificationPromise = user.isFirstLogin
       ? this.notificationService.addNotification({
-        userId: user.id,
-        message: 'Welcome to the platform!',
-        type: NotificationType.info,
-      })
+          userId: user.id,
+          title: 'Welcome to the platform!',
+          message: `Hy, ${user.name} welcome to our platform, please update your profile to get started.`,
+          type: NotificationType.info,
+        })
       : Promise.resolve();
 
     // Run the promise and update user and add notification to the user
@@ -228,7 +229,7 @@ class AuthController {
 
     const { accessToken } = generateAuthToken({ email: user.email, id: user.id, role: user.role });
 
-    return new successResponse({ token: { _aT : accessToken } }, 'Token Refreshed Successfully', true, 200);
+    return new successResponse({ token: { _aT: accessToken } }, 'Token Refreshed Successfully', true, 200);
   });
 
   /**

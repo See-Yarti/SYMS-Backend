@@ -10,6 +10,7 @@ export enum NotificationType {
 export interface INotification extends IBaseModel {
   user: ObjectId | IUser;
   message: string;
+  title: string;
   image: string;
   type: NotificationType;
   readAt: Date;

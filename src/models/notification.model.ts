@@ -10,6 +10,7 @@ type INotificationModel = Model<INotification, {}, INotificationMethods>;
 const NotificationSchema = new Schema<INotification, INotificationModel, INotificationMethods>({
   user: { type: Schema.Types.ObjectId, ref: 'User', required: true },
   message: { type: String, required: true },
+  title: { type: String, required: true },
   image: { type: String, required: false },
   type: { type: String, enum: NotificationType, default: NotificationType.info },
   readAt: { type: Date },
