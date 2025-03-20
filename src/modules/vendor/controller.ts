@@ -8,14 +8,43 @@ import CryptoService from '@/services/crypto.service';
 import UserService from '@/services/user.service';
 import Vendor from '@/models/vendor.model';
 import { PopulatedVendor } from '@/types/user.types';
+import { paginationDTO } from '@/common/dto';
 
 class VendorController {
   private vendorService: VendorService = new VendorService();
   private cryptoService: CryptoService = new CryptoService();
   private userService: UserService = new UserService();
   // Methods
+  // Get all vendors
+  public getAllVendors = asyncWrapper(async (request: Request) => {
+    const { limit, page } = request.query as unknown as paginationDTO;
+    const vendors = await this.vendorService.getVendors({
+      userFields: ['_id', 'email', 'name'],
+      vendorFields: ['_id', 'companyName', 'isVendorVerified'],
+      limit,
+      page,
+    });
+    const countVendors = await Vendor.countDocuments();
+    const response = {
+      vendors: vendors,
+      pagination: {
+        total: countVendors,
+        currentPage: page,
+        hasNextPage: page < Math.ceil(countVendors / limit),
+        hasPrevPage: page > 1,
+      },
+    };
+    return new successResponse(response, 'Vendors fetched successfully', true, 200);
+  });
   // Get vendor details
-  public getVendorDetails = asyncWrapper(async () => {});
+  public getVendorById = asyncWrapper(async (request: Request) => {
+    const { vendorId } = request.params;
+    const vendor = await this.vendorService.getVendorById(vendorId);
+    if (!vendor) {
+      throw new BadRequestError('Vendor not found', 404);
+    }
+    return new successResponse(vendor, 'Vendor fetched successfully', true, 200);
+  });
   // Verify the vendor by admin
   public verifyVendor = asyncWrapper(async (request: Request) => {
     // const adminUser = request.user;
