@@ -81,6 +81,16 @@ class VendorController {
     // Return success response
     return new successResponse(vendor, 'Vendor Verification Successful');
   });
+  // Delete the vendor
+  public deleteVendor = asyncWrapper(async (request: Request) => {
+    const { vendorId } = request.params as unknown as VerifyVendorParam;
+    const vendor = await this.vendorService.getVendorById(vendorId);
+    if (!vendor) {
+      throw new BadRequestError('Vendor not found', 404);
+    }
+    await this.vendorService.deleteVendor(vendor.id);
+    return new successResponse(null, 'Vendor deleted successfully', true, 200);
+  });
 }
 
 export default VendorController;
