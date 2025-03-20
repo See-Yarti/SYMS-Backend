@@ -177,13 +177,13 @@ class AuthController {
       session.endSession();
 
       // Send the Register Vendor Email
-      await this.emailQueue.add('registerVendorEmail', {
-        type: 'registerVendorEmail',
-        to: bodyData.email,
-        data: {
-          receiverName: bodyData.name,
-        },
-      });
+      // await this.emailQueue.add('registerVendorEmail', {
+      //   type: 'registerVendorEmail',
+      //   to: bodyData.email,
+      //   data: {
+      //     receiverName: bodyData.name,
+      //   },
+      // });
 
       return new successResponse(null, 'Vendor Created Successfully. Please wait for Admin Approval.', true, 201);
     } catch (error) {
